@@ -50,7 +50,7 @@ public class GAp implements BranchPredictor {
      */
     @Override
     public BranchResult predict(BranchInstruction branchInstruction) {
-        SC.load(PAPHT.setDefault(getCacheEntry(branchInstruction.getInstructionAddress()), getDefaultBlock()));
+        SC.load(PAPHT.get(getCacheEntry(branchInstruction.getInstructionAddress())));
         if (SC.read()[0].getValue()) {
             return BranchResult.TAKEN;
         } else {
