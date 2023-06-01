@@ -15,33 +15,40 @@ public class GAg implements BranchPredictor {
     }
 
     /**
-     * Creates a new GAg predictor with the given BHR register size and initializes the BHR and PHT.
+     * Creates a new GAg predictor with the given BHR register size and initializes
+     * the BHR and PHT.
      *
      * @param BHRSize the size of the BHR register
-     * @param SCSize  the size of the register which hold the saturating counter value and the cache block size
+     * @param SCSize  the size of the register which hold the saturating counter
+     *                value and the cache block size
      */
     public GAg(int BHRSize, int SCSize) {
-        // TODO : complete the constructor
         // Initialize the BHR register with the given size and no default value
-        this.BHR = null;
+        this.BHR = new SIPORegister("BHR", BHRSize, null);
 
-        // Initialize the PHT with a size of 2^size and each entry having a saturating counter of size "SCSize"
-        PHT = null;
+        // Initialize the PHT with a size of 2^size and each entry having a saturating
+        // counter of size "SCSize"
+        PHT = new PageHistoryTable(2 ^ BHRSize, SCSize);
 
         // Initialize the SC register
-        SC = null;
+        SC = new SIPORegister("SC", SCSize, null);
     }
 
     /**
-     * Predicts the result of a branch instruction based on the global branch history
+     * Predicts the result of a branch instruction based on the global branch
+     * history
      *
      * @param branchInstruction the branch instruction
      * @return the predicted outcome of the branch instruction (taken or not taken)
      */
     @Override
     public BranchResult predict(BranchInstruction branchInstruction) {
-        // TODO : complete Task 1
-        return BranchResult.NOT_TAKEN;
+        SC.load(PHT.setDefault(BHR.read(), getDefaultBlock()));
+        if (SC.read()[0].getValue()) {
+            return BranchResult.TAKEN;
+        } else {
+            return BranchResult.NOT_TAKEN;
+        }
     }
 
     /**
@@ -52,9 +59,14 @@ public class GAg implements BranchPredictor {
      */
     @Override
     public void update(BranchInstruction instruction, BranchResult actual) {
-        // TODO: complete Task 2
+        if (BranchResult.isTaken(actual)) {
+            PHT.put(BHR.read(), CombinationalLogic.count(SC.read(), true, CountMode.SATURATING));
+            BHR.insert(Bit.ONE);
+        } else {
+            PHT.put(BHR.read(), CombinationalLogic.count(SC.read(), false, CountMode.SATURATING));
+            BHR.insert(Bit.ZERO);
+        }
     }
-
 
     /**
      * @return a zero series of bits as default value of cache block
