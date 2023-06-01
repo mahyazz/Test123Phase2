@@ -1,6 +1,5 @@
 package hardwar.branch.prediction.judged.GAs;
 
-
 import hardwar.branch.prediction.shared.*;
 import hardwar.branch.prediction.shared.devices.*;
 
@@ -20,12 +19,15 @@ public class GAs implements BranchPredictor {
     }
 
     /**
-     * Creates a new GAs predictor with the given BHR register size and initializes the PAPHT based on
+     * Creates a new GAs predictor with the given BHR register size and initializes
+     * the PAPHT based on
      * the Ksize and saturating counter size
      *
      * @param BHRSize               the size of the BHR register
-     * @param SCSize                the size of the register which hold the saturating counter value
-     * @param branchInstructionSize the number of bits which is used for saving a branch instruction
+     * @param SCSize                the size of the register which hold the
+     *                              saturating counter value
+     * @param branchInstructionSize the number of bits which is used for saving a
+     *                              branch instruction
      */
     public GAs(int BHRSize, int SCSize, int branchInstructionSize, int KSize, HashMode hashmode) {
         // TODO: complete the constructor
@@ -34,18 +36,20 @@ public class GAs implements BranchPredictor {
         this.hashMode = HashMode.XOR;
 
         // Initialize the BHR register with the given size and no default value
-        BHR = null;
+        this.BHR = new SIPORegister("BHR", BHRSize, null);
 
-        // Initializing the PAPHT with K bit as PHT selector and 2^BHRSize row as each PHT entries
+        // Initializing the PAPHT with K bit as PHT selector and 2^BHRSize row as each
+        // PHT entries
         // number and SCSize as block size
-        PSPHT = null;
+        PSPHT = new PerAddressPredictionHistoryTable(KSize, 2 ^ BHRSize, SCSize);
 
         // Initialize the saturating counter
-        SC = null;
+        SC = new SIPORegister("SC", SCSize, null);
     }
 
     /**
-     * predicts the result of a branch instruction based on the global branch history and hash value of
+     * predicts the result of a branch instruction based on the global branch
+     * history and hash value of
      * branch instruction address
      *
      * @param branchInstruction the branch instruction
@@ -53,8 +57,12 @@ public class GAs implements BranchPredictor {
      */
     @Override
     public BranchResult predict(BranchInstruction branchInstruction) {
-        // TODO: complete Task 1
-        return BranchResult.NOT_TAKEN;
+        SC.load(PSPHT.setDefault(this.getCacheEntry(branchInstruction.getInstructionAddress()), getDefaultBlock()));
+        if (SC.read()[0].getValue()) {
+            return BranchResult.TAKEN;
+        } else {
+            return BranchResult.NOT_TAKEN;
+        }
     }
 
     /**
@@ -65,7 +73,9 @@ public class GAs implements BranchPredictor {
      */
     @Override
     public void update(BranchInstruction branchInstruction, BranchResult actual) {
-        // TODO: complete Task 2
+        PSPHT.put(this.getCacheEntry(branchInstruction.getInstructionAddress()),
+                CombinationalLogic.count(SC.read(), BranchResult.isTaken(actual), CountMode.SATURATING));
+        BHR.insert(BranchResult.isTaken(actual) ? Bit.ONE : Bit.ZERO);
     }
 
     /**
@@ -74,7 +84,6 @@ public class GAs implements BranchPredictor {
     public String monitor() {
         return "GAp predictor snapshot: \n" + BHR.monitor() + SC.monitor() + PSPHT.monitor();
     }
-
 
     /**
      * concat the PC and BHR to retrieve the desired address
